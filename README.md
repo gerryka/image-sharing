@@ -68,9 +68,18 @@ Ergebnis: `dist/ImgShare.exe` – eine Datei, keine Installation, kein .NET nöt
 
 ### Automatischer Build (GitHub Actions)
 
-`.github/workflows/windows-client.yml` baut `ImgShare.exe` bei jedem Push auf `main`
-(als Artefakt im Actions-Tab) und legt bei einem Tag `v*` ein Release mit EXE und
-SHA-256-Prüfsumme an. Die Versionsnummer der EXE kommt aus dem Tag:
+`.github/workflows/windows-client.yml` baut bei jedem Push auf `main` zwei Varianten
+(als Artefakte im Actions-Tab) und legt bei einem Tag `v*` ein Release mit beiden EXEs
+und SHA-256-Prüfsummen an:
+
+| Datei | Größe | Voraussetzung |
+|---|---|---|
+| `ImgShare.exe` | ~73 MB | keine – bringt die .NET-Laufzeit mit |
+| `ImgShare-fx.exe` | ~0,5 MB | [.NET 10 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/10.0) (x64) |
+
+Die kleine Variante lokal bauen: im obigen Befehl `--self-contained false` statt
+`--self-contained true` und ohne die beiden `…SelfExtract`/`…Compression`-Schalter,
+in einen leeren Ausgabeordner. Die Versionsnummer der EXEs kommt aus dem Tag:
 
 ```
 git tag v1.0.0
