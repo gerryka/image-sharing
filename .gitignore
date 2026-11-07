@@ -1,0 +1,19 @@
+# Build-Ausgaben
+dist/
+bin/
+obj/
+*.user
+.vs/
+.vscode/
+*.exe
+
+# Laufzeitdaten und Geheimnisse
+data/
+.env
+*.pem
+*.key
+id_rsa*
+
+# Betriebssystem
+.DS_Store
+Thumbs.db

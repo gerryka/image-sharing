@@ -1,0 +1,44 @@
+services:
+  imgshare:
+    build: .
+    image: imgshare:latest
+    container_name: imgshare
+    restart: unless-stopped
+    ports:
+      - "47000:47000"
+    volumes:
+      # Let's Encrypt nutzt relative Symlinks live/<domain>/ → ../../archive/<domain>/,
+      # daher beide Pfade unter /etc/letsencrypt mounten.
+      - /etc/letsencrypt/live/${TLS_DOMAIN:?TLS_DOMAIN in .env setzen}:/etc/letsencrypt/live/${TLS_DOMAIN}:ro
+      - /etc/letsencrypt/archive/${TLS_DOMAIN}:/etc/letsencrypt/archive/${TLS_DOMAIN}:ro
+      - ./data:/data
+    environment:
+      LISTEN_ADDR: ":47000"
+      TLS_CERT: /etc/letsencrypt/live/${TLS_DOMAIN}/fullchain.pem
+      TLS_KEY: /etc/letsencrypt/live/${TLS_DOMAIN}/privkey.pem
+      DATA_DIR: /data
+      MAX_BLOB_BYTES: "26214400"
+      MAX_MESSAGE_BYTES: "65536"
+      # Zugangscode für neue Chats – steht in ./.env (nicht im Repo), mind. 16 Zeichen.
+      ROOM_CREATE_SECRET: ${ROOM_CREATE_SECRET:?ROOM_CREATE_SECRET in .env setzen}
+      MAX_ROOMS: "100"
+      ROOM_QUOTA_BYTES: "2147483648"   # 2 GiB pro Chat
+      MIN_FREE_BYTES: "1073741824"     # 1 GiB muss auf der Platte frei bleiben
+      MAX_CONNS: "256"
+      MAX_CONNS_PER_IP: "32"
+      MAX_WS_TOTAL: "200"
+    user: "65532:65532"
+    mem_limit: 256m
+    pids_limit: 256
+    read_only: true
+    tmpfs:
+      - /tmp:size=8m
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

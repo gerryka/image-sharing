@@ -1,0 +1,33 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <SolidColorBrush x:Key="Bg" Color="#17191D"/>
+    <SolidColorBrush x:Key="Surface" Color="#1F2227"/>
+    <SolidColorBrush x:Key="Line" Color="#2C3036"/>
+    <SolidColorBrush x:Key="WindowBorder" Color="#2C3036"/>
+    <SolidColorBrush x:Key="InputBorder" Color="#6B717A"/>
+    <SolidColorBrush x:Key="InputBg" Color="#17191D"/>
+    <SolidColorBrush x:Key="Text" Color="#E7E9EC"/>
+    <SolidColorBrush x:Key="TextMuted" Color="#A3A9B2"/>
+    <SolidColorBrush x:Key="Incoming" Color="#24282E"/>
+    <SolidColorBrush x:Key="IncomingBorder" Color="#24282E"/>
+    <SolidColorBrush x:Key="Accent" Color="#2A6FB5"/>
+    <SolidColorBrush x:Key="AccentHover" Color="#24629F"/>
+    <SolidColorBrush x:Key="AccentSoft" Color="#1E3550"/>
+    <SolidColorBrush x:Key="AccentSoftText" Color="#A8CFF4"/>
+    <SolidColorBrush x:Key="OnAccent" Color="#FFFFFF"/>
+    <SolidColorBrush x:Key="CaptionOnAccent" Color="#F2F7FC"/>
+    <SolidColorBrush x:Key="Chip" Color="#24282E"/>
+    <SolidColorBrush x:Key="PanelBg" Color="#24282E"/>
+    <SolidColorBrush x:Key="PanelBorder" Color="#3A3F47"/>
+    <SolidColorBrush x:Key="Online" Color="#34C46E"/>
+    <SolidColorBrush x:Key="Offline" Color="#6B717A"/>
+    <SolidColorBrush x:Key="Lock" Color="#5FD08F"/>
+    <SolidColorBrush x:Key="Link" Color="#7FB8EE"/>
+    <SolidColorBrush x:Key="Hover" Color="#2A2E35"/>
+    <SolidColorBrush x:Key="ReadTick" Color="#7FB8EE"/>
+    <SolidColorBrush x:Key="SafeBg" Color="#183025"/>
+    <SolidColorBrush x:Key="SafeBorder" Color="#24513A"/>
+    <SolidColorBrush x:Key="SafeText" Color="#9BE0B6"/>
+    <SolidColorBrush x:Key="Danger" Color="#F2A097"/>
+    <SolidColorBrush x:Key="ImageBackdrop" Color="#2A2F36"/>
+</ResourceDictionary>

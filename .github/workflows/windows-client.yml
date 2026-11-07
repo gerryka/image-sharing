@@ -1,0 +1,83 @@
+# Baut den Windows-Client (ImgShare.exe, self-contained Single-File).
+#  - Push auf main bzw. Pull Request: EXE als Build-Artefakt (14 Tage abrufbar)
+#  - Tag v* (z. B. v1.2.0): zusätzlich GitHub-Release mit der EXE und SHA-256-Prüfsumme
+name: Windows-Client
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+    paths-ignore: ['**.md', 'docs/**']
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Version bestimmen
+        id: ver
+        shell: pwsh
+        run: |
+          if ($env:GITHUB_REF_TYPE -eq 'tag') { $v = $env:GITHUB_REF_NAME.TrimStart('v') }
+          else { $v = "0.0.0-ci.$env:GITHUB_RUN_NUMBER" }
+          "version=$v" >> $env:GITHUB_OUTPUT
+
+      - name: Publish
+        shell: pwsh
+        run: >
+          dotnet publish client/ImgShare/ImgShare.csproj
+          -c Release -r win-x64 --self-contained true
+          -p:PublishSingleFile=true
+          -p:IncludeNativeLibrariesForSelfExtract=true
+          -p:EnableCompressionInSingleFile=true
+          -p:Version=${{ steps.ver.outputs.version }}
+          "-p:DefaultServer=${{ vars.IMGSHARE_DEFAULT_SERVER }}"
+          -o out
+
+      - name: Prüfsumme
+        shell: pwsh
+        run: |
+          $h = (Get-FileHash out/ImgShare.exe -Algorithm SHA256).Hash.ToLower()
+          "$h  ImgShare.exe" | Out-File -Encoding ascii out/ImgShare.exe.sha256
+          Get-Content out/ImgShare.exe.sha256
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ImgShare-${{ steps.ver.outputs.version }}
+          path: |
+            out/ImgShare.exe
+            out/ImgShare.exe.sha256
+          retention-days: 14
+
+  release:
+    if: github.ref_type == 'tag'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Release anlegen
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >
+          gh release create "$GITHUB_REF_NAME"
+          dist/ImgShare.exe dist/ImgShare.exe.sha256
+          --repo "$GITHUB_REPOSITORY"
+          --title "ImgShare $GITHUB_REF_NAME"
+          --generate-notes

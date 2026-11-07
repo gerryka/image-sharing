@@ -1,0 +1,265 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>ImgShare – Architektur &amp; Verschlüsselung</title>
+<style>
+  @page { size: A4; margin: 18mm 17mm 18mm 17mm; }
+  :root { --ink:#1d2530; --muted:#5a6573; --line:#d5dbe2; --accent:#1f5f9e; --soft:#eef3f8; --warn:#9a5b00; --warnbg:#fff6e6; --ok:#1d6b3a; --okbg:#eaf6ee; }
+  * { box-sizing:border-box; }
+  body { font-family:"Segoe UI", Arial, sans-serif; color:var(--ink); font-size:10pt; line-height:1.45; margin:0; background:#fff; }
+  h1 { font-size:22pt; margin:0 0 2mm; color:var(--accent); font-weight:600; }
+  h2 { font-size:13.5pt; margin:7mm 0 2.5mm; padding-bottom:1.2mm; border-bottom:1.5px solid var(--accent); color:var(--accent); font-weight:600; break-after:avoid; }
+  h3 { font-size:11pt; margin:4mm 0 1.5mm; font-weight:600; break-after:avoid; }
+  p { margin:0 0 2.2mm; }
+  .sub { color:var(--muted); font-size:10.5pt; margin-bottom:5mm; }
+  code, .mono { font-family:Consolas, monospace; font-size:9pt; }
+  code { background:var(--soft); padding:0 1mm; border-radius:2px; }
+  table { width:100%; border-collapse:collapse; margin:1.5mm 0 3mm; font-size:9.3pt; break-inside:avoid; }
+  th, td { text-align:left; vertical-align:top; padding:1.4mm 2mm; border-bottom:1px solid var(--line); }
+  th { background:var(--soft); font-weight:600; }
+  ul { margin:0 0 2.5mm; padding-left:5mm; }
+  li { margin-bottom:1mm; }
+  .box { border:1px solid var(--line); border-left:3px solid var(--accent); background:var(--soft); padding:2.5mm 3.5mm; margin:2mm 0 3.5mm; break-inside:avoid; }
+  .box.warn { border-left-color:var(--warn); background:var(--warnbg); }
+  .box.ok { border-left-color:var(--ok); background:var(--okbg); }
+  .box p:last-child, .box ul:last-child { margin-bottom:0; }
+  .cols { display:flex; gap:5mm; }
+  .cols > div { flex:1; }
+  figure { margin:2mm 0 4mm; break-inside:avoid; }
+  figcaption { color:var(--muted); font-size:8.8pt; margin-top:1mm; }
+  svg text { font-family:"Segoe UI", Arial, sans-serif; }
+  .pb { break-before:page; }
+  .meta { font-size:8.8pt; color:var(--muted); }
+</style>
+</head>
+<body>
+
+<h1>ImgShare – Architektur &amp; Verschlüsselung</h1>
+<div class="sub">Ende-zu-Ende-verschlüsselter Bild- und Text-Chat zwischen zwei Kollegen · Stand 07.11.2026 · Protokoll v1</div>
+
+<h2>1 · Überblick</h2>
+<p>ImgShare besteht aus zwei Teilen: einem Windows-Programm im Infobereich (Chatfenster, Bilder einfügen, Verlauf) und einem kleinen Relay-Server auf <code>https://server.example.com:47000</code>. Der Server ist absichtlich „dumm“: Er speichert und verteilt nur verschlüsselte Bytes. <b>Sämtliche Kryptografie passiert in den beiden Clients</b>; der Schlüssel verlässt nie die Rechner der Teilnehmer.</p>
+
+<figure>
+<svg viewBox="0 0 700 262" width="100%" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#1f5f9e"/></marker>
+  </defs>
+  <!-- Client A -->
+  <rect x="10" y="30" width="170" height="170" rx="8" fill="#eef3f8" stroke="#1f5f9e" stroke-width="1.5"/>
+  <text x="95" y="54" text-anchor="middle" font-size="14" font-weight="600" fill="#1d2530">Client A (Windows)</text>
+  <rect x="25" y="68" width="140" height="34" rx="5" fill="#fff" stroke="#9fb3c8"/>
+  <text x="95" y="90" text-anchor="middle" font-size="11.5" fill="#1d2530">Klartext: Text / Bild</text>
+  <rect x="25" y="112" width="140" height="34" rx="5" fill="#1f5f9e"/>
+  <text x="95" y="134" text-anchor="middle" font-size="11.5" fill="#fff">AES-256-GCM</text>
+  <text x="95" y="166" text-anchor="middle" font-size="10.5" fill="#5a6573">Schlüssel K (DPAPI)</text>
+  <text x="95" y="182" text-anchor="middle" font-size="10.5" fill="#5a6573">verschl. Bild-Cache</text>
+
+  <!-- Client B -->
+  <rect x="520" y="30" width="170" height="170" rx="8" fill="#eef3f8" stroke="#1f5f9e" stroke-width="1.5"/>
+  <text x="605" y="54" text-anchor="middle" font-size="14" font-weight="600" fill="#1d2530">Client B (Windows)</text>
+  <rect x="535" y="68" width="140" height="34" rx="5" fill="#fff" stroke="#9fb3c8"/>
+  <text x="605" y="90" text-anchor="middle" font-size="11.5" fill="#1d2530">Klartext: Text / Bild</text>
+  <rect x="535" y="112" width="140" height="34" rx="5" fill="#1f5f9e"/>
+  <text x="605" y="134" text-anchor="middle" font-size="11.5" fill="#fff">AES-256-GCM</text>
+  <text x="605" y="166" text-anchor="middle" font-size="10.5" fill="#5a6573">Schlüssel K (DPAPI)</text>
+  <text x="605" y="182" text-anchor="middle" font-size="10.5" fill="#5a6573">verschl. Bild-Cache</text>
+
+  <!-- Server -->
+  <rect x="250" y="20" width="200" height="190" rx="8" fill="#fff" stroke="#5a6573" stroke-width="1.5" stroke-dasharray="5 3"/>
+  <text x="350" y="42" text-anchor="middle" font-size="13" font-weight="600" fill="#1d2530">Server (Debian 12, Docker)</text>
+  <text x="350" y="58" text-anchor="middle" font-size="10.5" fill="#5a6573">Go-Relay · TLS · Port 47000</text>
+  <rect x="268" y="70" width="164" height="30" rx="5" fill="#f4f5f7" stroke="#c3cad3"/>
+  <text x="350" y="89" text-anchor="middle" font-size="10.5" fill="#1d2530">SQLite: Nachrichten (Ciphertext)</text>
+  <rect x="268" y="106" width="164" height="30" rx="5" fill="#f4f5f7" stroke="#c3cad3"/>
+  <text x="350" y="125" text-anchor="middle" font-size="10.5" fill="#1d2530">/data/blobs: Bilder (Ciphertext)</text>
+  <rect x="268" y="142" width="164" height="30" rx="5" fill="#f4f5f7" stroke="#c3cad3"/>
+  <text x="350" y="161" text-anchor="middle" font-size="10.5" fill="#1d2530">Räume: room_id + sha256(Token)</text>
+  <text x="350" y="194" text-anchor="middle" font-size="10.5" font-style="italic" fill="#9a5b00">kennt keinen Schlüssel, keinen Klartext</text>
+
+  <!-- arrows -->
+  <line x1="180" y1="118" x2="248" y2="118" stroke="#1f5f9e" stroke-width="2" marker-end="url(#a)" marker-start="url(#a)"/>
+  <line x1="452" y1="118" x2="518" y2="118" stroke="#1f5f9e" stroke-width="2" marker-end="url(#a)" marker-start="url(#a)"/>
+  <text x="214" y="108" text-anchor="middle" font-size="9.5" fill="#1f5f9e">HTTPS</text>
+  <text x="214" y="138" text-anchor="middle" font-size="9.5" fill="#1f5f9e">+ WebSocket</text>
+  <text x="485" y="108" text-anchor="middle" font-size="9.5" fill="#1f5f9e">HTTPS</text>
+  <text x="485" y="138" text-anchor="middle" font-size="9.5" fill="#1f5f9e">+ WebSocket</text>
+
+  <!-- out of band -->
+  <path d="M95,200 C95,232 605,232 605,200" fill="none" stroke="#1d6b3a" stroke-width="1.5" stroke-dasharray="4 3"/>
+  <text x="350" y="256" text-anchor="middle" font-size="10.5" fill="#1d6b3a">Schlüssel K wird vorab direkt ausgetauscht (QR-Code, persönlich, sicherer Kanal) – nie über den Server</text>
+</svg>
+<figcaption>Abb. 1 – Komponenten und Vertrauensgrenzen. Alles, was den Client verlässt, ist bereits verschlüsselt; TLS kommt als zweite Schicht hinzu.</figcaption>
+</figure>
+
+<table>
+  <tr><th style="width:24%">Komponente</th><th>Technik</th></tr>
+  <tr><td>Windows-Client</td><td>WPF auf .NET 10, Symbol im Infobereich, eigenständige Single-File-EXE (<code>ImgShare.exe</code>). Bibliothek <code>ImgShare.Core</code> enthält Krypto, API-Client und Konfiguration.</td></tr>
+  <tr><td>Server</td><td>Go 1.26, eine Binärdatei im Container <code>distroless/static</code>; SQLite (pure Go) für Metadaten und Nachrichten, Dateisystem für Bild-Blobs.</td></tr>
+  <tr><td>Transport</td><td>REST über HTTPS zum Senden und Nachladen, WebSocket für Echtzeit-Zustellung und Online-Anzeige.</td></tr>
+  <tr><td>TLS-Zertifikat</td><td>Let's Encrypt vom Host, read-only gemountet; der Server lädt es nach einer Erneuerung automatisch neu.</td></tr>
+</table>
+
+<h2>2 · Schlüssel und Schlüsselableitung</h2>
+<p>Jeder Chat hat genau einen <b>Root-Key K</b>: 32 kryptografisch zufällige Bytes (256 Bit), erzeugt vom Client, der den Chat einrichtet. Er wird als Base32 in Vierergruppen angezeigt (z. B. <span class="mono">K7QF-2MXA-…</span>, Tippfehler-tolerant bei 0/O und 1/I) und an den Kollegen <b>außerhalb des Servers</b> weitergegeben – per QR-Code, persönlich oder über einen anderen sicheren Kanal.</p>
+<p>Aus K werden per <b>HKDF-SHA256</b> (Salt <code>"imgshare-v1"</code>) unabhängige Teilschlüssel abgeleitet. Kennt man einen davon, lassen sich weder K noch die anderen berechnen:</p>
+<table>
+  <tr><th style="width:16%">Info</th><th style="width:12%">Länge</th><th style="width:22%">Ergebnis</th><th>Verwendung</th></tr>
+  <tr><td><code>enc</code></td><td>32 Byte</td><td>enc_key</td><td>AES-256-GCM-Schlüssel für Nachrichten und Bilder. Bleibt immer im Client.</td></tr>
+  <tr><td><code>room</code></td><td>16 Byte</td><td>room_id (32 Hex)</td><td>Adresse des Chats am Server. Gibt nichts über K preis.</td></tr>
+  <tr><td><code>auth</code></td><td>32 Byte</td><td>Token</td><td>Zugriffsberechtigung; der Server speichert nur <code>sha256(Token)</code>.</td></tr>
+  <tr><td><code>safety</code></td><td>8 Byte</td><td>12-stelliger Code</td><td>Sicherheitscode zum Vergleichen (z. B. am Telefon): stimmt er auf beiden Seiten überein, haben beide denselben Schlüssel.</td></tr>
+</table>
+
+<h2>3 · Verschlüsselung von Nachrichten und Bildern</h2>
+<p>Jede Nachricht und jedes Bild wird mit <b>AES-256-GCM</b> verschlüsselt (authentifizierte Verschlüsselung: Vertraulichkeit <i>und</i> Schutz vor Manipulation). Für jeden Vorgang wird ein neuer, zufälliger 12-Byte-Nonce erzeugt.</p>
+
+<figure>
+<svg viewBox="0 0 700 92" width="100%" xmlns="http://www.w3.org/2000/svg">
+  <rect x="10" y="10" width="120" height="40" fill="#9fb3c8"/>
+  <text x="70" y="35" text-anchor="middle" font-size="12" fill="#1d2530">Nonce · 12 B</text>
+  <rect x="130" y="10" width="440" height="40" fill="#1f5f9e"/>
+  <text x="350" y="35" text-anchor="middle" font-size="12" fill="#fff">Ciphertext (Länge = Klartext)</text>
+  <rect x="570" y="10" width="120" height="40" fill="#1d6b3a"/>
+  <text x="630" y="35" text-anchor="middle" font-size="12" fill="#fff">GCM-Tag · 16 B</text>
+  <text x="10" y="72" font-size="10.5" fill="#5a6573">AAD (mitauthentifiziert, nicht gespeichert): room_id – ein Ciphertext aus einem anderen Chat lässt sich hier nicht entschlüsseln.</text>
+  <text x="10" y="87" font-size="10.5" fill="#5a6573">Jede Veränderung eines einzigen Bits führt zum Abbruch der Entschlüsselung; der Client zeigt so eine Nachricht nicht an.</text>
+</svg>
+<figcaption>Abb. 2 – Aufbau eines verschlüsselten Datensatzes (Nachricht oder Bild-Blob).</figcaption>
+</figure>
+
+<p>Der <b>Klartext einer Nachricht</b> ist ein kleines JSON-Dokument; erst dieses wird verschlüsselt. Der Server sieht keinen dieser Inhalte:</p>
+<table>
+  <tr><th style="width:14%">Typ</th><th>Inhalt (vor der Verschlüsselung)</th></tr>
+  <tr><td><code>text</code></td><td>Absender-Gerät, Absendername, Sendezeit, Text</td></tr>
+  <tr><td><code>image</code></td><td>wie oben, plus Bild-Metadaten: <code>blob_id</code>, MIME-Typ, Dateiname, Größe, Breite/Höhe</td></tr>
+  <tr><td><code>read</code></td><td>Lesebestätigung „gelesen bis Nachricht n“ – wird gespeichert, aber nicht angezeigt</td></tr>
+</table>
+<p><b>Bilder</b> werden getrennt als Blob verschlüsselt und hochgeladen; die zugehörige Chat-Nachricht verweist nur über die <code>blob_id</code> darauf. Dateiname und Abmessungen stehen ausschließlich in der verschlüsselten Nachricht.</p>
+
+<h2>4 · Abläufe</h2>
+<h3>Chat einrichten</h3>
+<ul>
+  <li>Teilnehmer A wählt „Neu erzeugen“: der Client erzeugt K und zeigt Schlüssel, QR-Code und Sicherheitscode.</li>
+  <li>A gibt K an B weiter; B wählt „Einfügen“. Beide vergleichen den 12-stelligen Sicherheitscode.</li>
+  <li>Beim ersten Kontakt mit einer neuen <code>room_id</code> legt der Server den Raum nur an, wenn der Request den <b>Server-Zugangscode</b> (<code>X-Invite-Code</code>) trägt. So kann niemand Fremdes den Server als Speicher missbrauchen. Der zweite Teilnehmer braucht den Code nicht mehr.</li>
+  <li>Der Server merkt sich den Raum mit <code>sha256(Token)</code>. Ab dann gilt nur noch dieses Token; ein anderes wird mit <code>401</code> abgewiesen.</li>
+</ul>
+<h3>Text senden</h3>
+<ul>
+  <li>Client baut das Klartext-JSON, verschlüsselt es mit enc_key, sendet <code>POST /v1/rooms/{room}/messages</code>.</li>
+  <li>Der Server speichert den Ciphertext mit fortlaufender ID und Zeitstempel und schickt ihn per WebSocket an alle verbundenen Clients des Raums.</li>
+  <li>Der Empfänger entschlüsselt, prüft den GCM-Tag und zeigt die Nachricht an; später sendet er eine <code>read</code>-Bestätigung.</li>
+</ul>
+<h3>Bild senden</h3>
+<ul>
+  <li>Bild aus Zwischenablage oder per Drag &amp; Drop (nur PNG/JPG), Prüfung von Format und Pixelzahl.</li>
+  <li>Bild wird verschlüsselt und als Blob hochgeladen (<code>POST …/blobs</code>, max. 25 MB) → Server liefert <code>blob_id</code>.</li>
+  <li>Danach geht eine verschlüsselte <code>image</code>-Nachricht mit dieser <code>blob_id</code> raus.</li>
+  <li>Empfänger lädt den Blob, entschlüsselt und prüft ihn und legt ihn – weiterhin verschlüsselt – im lokalen Cache ab.</li>
+</ul>
+<h3>Verbindung verloren</h3>
+<p>Nach einem Reconnect holt der Client alles Verpasste über <code>GET …/messages?after=&lt;letzte ID&gt;</code>. Nicht zugestellte eigene Nachrichten werden automatisch erneut gesendet, sobald die Verbindung wieder steht.</p>
+
+<h2>5 · Server</h2>
+<div class="cols">
+<div>
+<h3>Was gespeichert wird</h3>
+<table>
+  <tr><th>Tabelle / Ort</th><th>Inhalt</th></tr>
+  <tr><td>rooms</td><td>room_id, sha256(Token), Anlagezeit</td></tr>
+  <tr><td>messages</td><td>ID, room_id, Zeitstempel, Ciphertext</td></tr>
+  <tr><td>blobs + /data/blobs</td><td>blob_id, room_id, Größe, Zeit; die verschlüsselte Datei</td></tr>
+</table>
+</div>
+<div>
+<h3>Zugriffskontrolle</h3>
+<ul>
+  <li>Jeder Request trägt <code>Authorization: Bearer &lt;Token&gt;</code>; Vergleich in konstanter Zeit.</li>
+  <li>Neue Räume nur mit Zugangscode, höchstens 100 Räume.</li>
+  <li>Rate-Limit nur für Fehlversuche (10/min pro IP); gültige Tokens werden nie gesperrt.</li>
+  <li>Room-IDs erscheinen im Log nur gekürzt.</li>
+</ul>
+</div>
+</div>
+
+<h3>Härtung und Ressourcen-Limits</h3>
+<table>
+  <tr><th style="width:30%">Bereich</th><th>Maßnahme</th></tr>
+  <tr><td>Container</td><td>distroless-Image ohne Shell, unprivilegierter User 65532, Dateisystem read-only, alle Capabilities entzogen, <code>no-new-privileges</code>, 256 MB RAM, 256 Prozesse</td></tr>
+  <tr><td>Speicher</td><td>2 GiB pro Chat; es bleibt immer 1 GiB frei auf der Platte (sonst <code>507</code>)</td></tr>
+  <tr><td>Verbindungen</td><td>256 TCP-Verbindungen gesamt, 32 pro IP (vor dem TLS-Handshake); 200 WebSockets gesamt, 8 pro Raum</td></tr>
+  <tr><td>Größen &amp; Zeiten</td><td>Nachricht max. 64 KB, Bild max. 25 MB, Antwort max. 8 MiB; Lese-Timeout 60 s, Bild-Upload max. 10 min</td></tr>
+  <tr><td>Geheimnisse</td><td>Zugangscode nur in <code>/compose/image-sharing/.env</code> (Rechte 600), nicht im Image</td></tr>
+</table>
+
+<h2>6 · Client</h2>
+<ul>
+  <li><b>Schlüsselablage:</b> K und der Zugangscode liegen in der Konfiguration unter <code>%APPDATA%</code>, verschlüsselt mit <b>Windows DPAPI</b> (an das Windows-Benutzerkonto gebunden). Eine kopierte Konfigurationsdatei ist auf einem anderen Konto wertlos.</li>
+  <li><b>Bild-Cache:</b> enthält nur die verschlüsselten Blobs; entschlüsselt wird erst zur Anzeige im Speicher. Ein beschädigter Eintrag wird verworfen und neu geladen.</li>
+  <li><b>Schlüssel kopieren:</b> landet nicht im Zwischenablage-Verlauf (Win+V) oder in der Cloud-Zwischenablage und wird nach 60 s wieder gelöscht.</li>
+  <li><b>Eingaben des Gegenübers sind unvertraut:</b> Dateinamen werden bereinigt und bekommen die richtige Endung; Bilder über 100 Megapixel werden abgelehnt; Links nur mit http/https; Server-Antworten max. 32 MB.</li>
+  <li><b>Server-Adresse:</b> nur <code>https://</code> (unverschlüsseltes http nur für localhost-Tests).</li>
+</ul>
+
+<h2>7 · Sicherheitsmodell</h2>
+<div class="box ok">
+<p><b>Wenn der Server kompromittiert wird</b>, erhält ein Angreifer nur Ciphertext. Ohne K kann er weder Texte noch Bilder lesen, und auch keine Nachrichten fälschen, die die Clients akzeptieren: Jede Veränderung scheitert am GCM-Tag. Der gespeicherte Token-Hash erlaubt keinen Rückschluss auf K.</p>
+</div>
+
+<h3>Was der Server (bzw. ein Angreifer dort) sieht</h3>
+<table>
+  <tr><th style="width:50%">Sichtbar</th><th>Nicht sichtbar</th></tr>
+  <tr><td>
+    <ul>
+      <li>room_id (zufällig, ohne Bezug zu Personen)</li>
+      <li>Zeitpunkt und Größe jeder Nachricht und jedes Bildes</li>
+      <li>IP-Adressen der Clients, Online-Zeiten</li>
+      <li>Anzahl der Nachrichten, Lesebestätigungen als solche nicht unterscheidbar</li>
+    </ul>
+  </td><td>
+    <ul>
+      <li>Texte, Links, Bilder</li>
+      <li>Dateinamen, Bildgrößen in Pixeln, MIME-Typ</li>
+      <li>Namen der Teilnehmer</li>
+      <li>den Schlüssel K und den AES-Schlüssel</li>
+    </ul>
+  </td></tr>
+</table>
+
+<h3>Bewusste Grenzen von Protokoll v1</h3>
+<div class="box warn">
+<ul>
+  <li><b>Wiedereinspielen (Replay):</b> Ein kompromittierter Server könnte eine alte, gültige Nachricht erneut ausliefern. Sie würde korrekt entschlüsselt, ist aber nicht neu. <i>Abhilfe in v2:</i> eindeutige Nachrichten-ID im verschlüsselten Klartext.</li>
+  <li><b>Vertauschte Bilder:</b> Der Server könnte zu einer Bild-Nachricht einen anderen Blob desselben Chats ausliefern. Fremde Inhalte sind unmöglich, nur Bilder aus diesem Chat. <i>Abhilfe in v2:</i> blob_id bzw. Hash des Blobs als AAD binden.</li>
+  <li><b>Unterdrücken:</b> Der Server kann Nachrichten zurückhalten oder löschen – Verfügbarkeit ist nicht garantiert, nur Vertraulichkeit und Echtheit.</li>
+  <li><b>Kein Forward Secrecy:</b> Es gibt einen statischen Schlüssel pro Chat. Wer K erbeutet (z. B. vom entsperrten Rechner eines Teilnehmers), kann den gesamten Verlauf am Server entschlüsseln. Abhilfe: Chat mit neuem Schlüssel neu anlegen.</li>
+  <li><b>Metadaten:</b> Zeitpunkte, Größen und IP-Adressen sind für den Server sichtbar (siehe oben).</li>
+  <li><b>Endgeräte:</b> Ein kompromittierter Windows-Rechner eines Teilnehmers ist außerhalb des Schutzbereichs; DPAPI schützt K nur gegenüber anderen Benutzerkonten und kopierten Dateien.</li>
+</ul>
+</div>
+
+<h3>Empfehlungen für den Betrieb</h3>
+<ul>
+  <li>Schlüssel nur über einen sicheren Kanal weitergeben und den Sicherheitscode immer vergleichen.</li>
+  <li>Zugangscode nur an Personen geben, die selbst neue Chats anlegen sollen.</li>
+  <li>Bei Verdacht auf Schlüsselverlust: Chat entfernen und mit neuem Schlüssel neu einrichten.</li>
+  <li>Privaten TLS-Schlüssel am Host auf Rechte <code>600</code>/<code>640</code> beschränken (derzeit <code>644</code>).</li>
+</ul>
+
+<h2>8 · Betrieb</h2>
+<table>
+  <tr><th style="width:28%">Punkt</th><th>Festlegung</th></tr>
+  <tr><td>Adresse</td><td><code>https://server.example.com:47000</code></td></tr>
+  <tr><td>Deploy-Verzeichnis</td><td><code>/compose/image-sharing</code> – <code>docker compose up -d --build</code></td></tr>
+  <tr><td>Daten</td><td><code>./data</code>: <code>db.sqlite</code> (WAL) und <code>blobs/&lt;room&gt;/&lt;blob_id&gt;</code> – Backup genügt, alles darin ist verschlüsselt</td></tr>
+  <tr><td>Zertifikat</td><td><code>/etc/letsencrypt/live</code> + <code>archive</code> für server.example.com, read-only; Erneuerung ohne Neustart</td></tr>
+  <tr><td>Prüfung</td><td><code>GET /healthz</code> sowie <code>ImgShare.SelfTest &lt;server&gt; [zugangscode]</code> (Ende-zu-Ende-Test)</td></tr>
+  <tr><td>Spezifikation</td><td><code>docs/PROTOCOL.md</code> (API, Datenbank, Fehlercodes)</td></tr>
+</table>
+
+<p class="meta">Kryptografische Primitive: AES-256-GCM (96-Bit-Nonce, 128-Bit-Tag), HKDF-SHA256 (RFC 5869), SHA-256, TLS 1.2+ (Go-Standardbibliothek), Windows DPAPI (CryptProtectData, Benutzerbereich). Zufallszahlen: <code>RandomNumberGenerator</code> (.NET) bzw. <code>crypto/rand</code> (Go).</p>
+
+</body>
+</html>

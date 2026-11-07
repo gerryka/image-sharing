@@ -1,0 +1,11 @@
+# Nur der Go-Server gehört in den Build-Kontext.
+data/
+client/
+dist/
+tools/
+docs/
+.env
+**/bin/
+**/obj/
+*.md
+.git/

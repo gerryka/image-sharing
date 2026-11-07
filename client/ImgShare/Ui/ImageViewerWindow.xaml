@@ -1,0 +1,27 @@
+<Window x:Class="ImgShare.Ui.ImageViewerWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Width="960" Height="680" MinWidth="320" MinHeight="240"
+        WindowStartupLocation="Manual" ShowInTaskbar="True"
+        Background="{DynamicResource Bg}" FontFamily="{StaticResource UiFont}" Foreground="{DynamicResource Text}">
+    <DockPanel>
+        <Border DockPanel.Dock="Bottom" Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Line}"
+                BorderThickness="0,1,0,0" Padding="16,10">
+            <DockPanel>
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                    <Button x:Name="CopyButton" Style="{StaticResource SecondaryButton}" Margin="0,0,8,0" Click="Copy_Click" Content="Kopieren"/>
+                    <Button Style="{StaticResource SecondaryButton}" Margin="0,0,8,0" Click="Save_Click" Content="Speichern unter …"/>
+                    <Button Style="{StaticResource PrimaryButton}" Click="Close_Click" Content="Schließen" IsCancel="True"/>
+                </StackPanel>
+                <TextBlock x:Name="Info" VerticalAlignment="Center" FontSize="12.5" Foreground="{DynamicResource TextMuted}"
+                           TextTrimming="CharacterEllipsis"/>
+            </DockPanel>
+        </Border>
+        <Grid>
+            <TextBlock x:Name="Loading" Text="Bild wird entschlüsselt …" HorizontalAlignment="Center" VerticalAlignment="Center"
+                       Foreground="{DynamicResource TextMuted}"/>
+            <Image x:Name="Picture" Stretch="Uniform" StretchDirection="DownOnly" Margin="16"
+                   RenderOptions.BitmapScalingMode="HighQuality"/>
+        </Grid>
+    </DockPanel>
+</Window>
