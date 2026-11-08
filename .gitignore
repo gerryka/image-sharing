@@ -17,3 +17,9 @@ id_rsa*
 # Betriebssystem
 .DS_Store
 Thumbs.db
+
+# macOS-Client
+client-mac/.build/
+client-mac/*.xcodeproj
+client-mac/build/
+.superpowers/
