@@ -1,0 +1,53 @@
+name: ImgShareMac
+options:
+  bundleIdPrefix: at.mediatesystems
+  deploymentTarget:
+    macOS: "27.0"
+  createIntermediateGroups: true
+packages:
+  ImgShareCore:
+    path: .
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    MACOSX_DEPLOYMENT_TARGET: "27.0"
+    IMGSHARE_DEFAULT_SERVER: ""
+targets:
+  ImgShareMac:
+    type: application
+    platform: macOS
+    sources:
+      - path: ImgShareMac
+    dependencies:
+      - package: ImgShareCore
+    info:
+      path: ImgShareMac/Info.plist
+      properties:
+        CFBundleDisplayName: ImgShare
+        CFBundleName: ImgShare
+        CFBundleShortVersionString: "1.0"
+        CFBundleVersion: "1"
+        LSUIElement: true
+        LSApplicationCategoryType: public.app-category.social-networking
+        NSHumanReadableCopyright: "ImgShare"
+        IMGSHAREDefaultServer: $(IMGSHARE_DEFAULT_SERVER)
+    settings:
+      base:
+        PRODUCT_NAME: ImgShare
+        PRODUCT_BUNDLE_IDENTIFIER: at.mediatesystems.imgshare
+        CODE_SIGN_IDENTITY: "-"
+        CODE_SIGN_STYLE: Manual
+        DEVELOPMENT_TEAM: ""
+        ENABLE_HARDENED_RUNTIME: YES
+        ENABLE_APP_SANDBOX: NO
+        GENERATE_INFOPLIST_FILE: NO
+        COMBINE_HIDPI_IMAGES: YES
+schemes:
+  ImgShareMac:
+    build:
+      targets:
+        ImgShareMac: all
+    run:
+      config: Debug
+    archive:
+      config: Release
