@@ -1,0 +1,105 @@
+# Baut den macOS-Client (Menüleisten-App, ad-hoc signiert, nicht notarisiert).
+# Läuft die Core-Tests inkl. Integrationstests gegen den echten Server (tools/devserver).
+# Push auf main bzw. Pull Request: ImgShare-mac.zip als Build-Artefakt (14 Tage abrufbar).
+# Tag v* (z. B. v1.2.0): zusätzlich Upload ins GitHub-Release.
+name: macOS-Client
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+    paths-ignore: ['**.md', 'docs/**']
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Neueste Xcode-Version wählen (mind. 27)
+        run: |
+          xcode=$(ls -d /Applications/Xcode_*.app | sort -V | tail -1)
+          sudo xcode-select -s "$xcode"
+          xcodebuild -version
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Dev-Server starten
+        run: |
+          go build -o devserver ./tools/devserver
+          ./devserver -addr 127.0.0.1:47001 > devserver1.log 2>&1 &
+          ./devserver -addr 127.0.0.1:47002 -drop-after 2s > devserver2.log 2>&1 &
+          for i in $(seq 1 30); do curl -sf http://127.0.0.1:47001/healthz && curl -sf http://127.0.0.1:47002/healthz && break; sleep 1; done
+
+      - name: Tests
+        env:
+          IMGSHARE_TEST_SERVER: http://127.0.0.1:47001
+          IMGSHARE_TEST_SERVER_FLAKY: http://127.0.0.1:47002
+        run: swift test --package-path client-mac
+
+      - name: Version bestimmen
+        id: ver
+        run: |
+          if [ "$GITHUB_REF_TYPE" = tag ]; then v="${GITHUB_REF_NAME#v}"; else v="0.0.${GITHUB_RUN_NUMBER}"; fi
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+
+      - name: App bauen
+        run: |
+          brew install xcodegen
+          cd client-mac
+          xcodegen --quiet
+          xcodebuild -project ImgShareMac.xcodeproj -scheme ImgShareMac -configuration Release \
+            -derivedDataPath build \
+            IMGSHARE_DEFAULT_SERVER="${{ vars.IMGSHARE_DEFAULT_SERVER }}" \
+            MARKETING_VERSION="${{ steps.ver.outputs.version }}" \
+            CURRENT_PROJECT_VERSION="${{ github.run_number }}" \
+            CODE_SIGN_IDENTITY=- build
+
+      - name: Paketieren
+        run: |
+          mkdir -p release
+          ditto -c -k --keepParent client-mac/build/Build/Products/Release/ImgShare.app release/ImgShare-mac.zip
+          cd release
+          shasum -a 256 ImgShare-mac.zip > ImgShare-mac.zip.sha256
+          cat ImgShare-mac.zip.sha256
+          du -h ImgShare-mac.zip
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ImgShare-mac-${{ steps.ver.outputs.version }}
+          path: release/*
+          retention-days: 14
+
+  release:
+    if: github.ref_type == 'tag'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Release anlegen oder ergänzen
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          notes="**ImgShare-mac.zip** ist die macOS-Menüleisten-App (nicht notarisiert, siehe README: erster Start)."
+          if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" dist/* --clobber --repo "$GITHUB_REPOSITORY"
+          else
+            gh release create "$GITHUB_REF_NAME" dist/* \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "ImgShare $GITHUB_REF_NAME" \
+              --notes "$notes" --generate-notes
+          fi
