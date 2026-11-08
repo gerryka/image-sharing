@@ -59,13 +59,28 @@ public enum ImageFormat {
         let b = [UInt8](data.prefix(24))
         if detectMime(data) == "image/png", b.count == 24, b[12...15] == [0x49, 0x48, 0x44, 0x52] {
             func be(_ i: Int) -> Int { Int(b[i]) << 24 | Int(b[i + 1]) << 16 | Int(b[i + 2]) << 8 | Int(b[i + 3]) }
-            return (be(16), be(20))
+            let w = be(16), h = be(20)
+            // PNG-Spezifikation: höchstens 2^31-1; größere Werte sind kaputt oder böswillig.
+            guard w > 0, h > 0, w <= Int(Int32.max), h <= Int(Int32.max) else { return nil }
+            return (w, h)
         }
         guard let src = CGImageSourceCreateWithData(data as CFData, nil),
               let props = CGImageSourceCopyPropertiesAtIndex(src, 0, nil) as? [CFString: Any],
               let w = props[kCGImagePropertyPixelWidth] as? Int,
               let h = props[kCGImagePropertyPixelHeight] as? Int else { return nil }
         return (w, h)
+    }
+
+    /// Verkleinerte Vorschau (dekodiert nicht das ganze Bild in voller Auflösung).
+    public static func thumbnail(_ data: Data, maxPixelSize: Int) -> CGImage? {
+        guard let src = CGImageSourceCreateWithData(data as CFData, nil) else { return nil }
+        let opts: [CFString: Any] = [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceShouldCacheImmediately: true,
+            kCGImageSourceThumbnailMaxPixelSize: maxPixelSize,
+        ]
+        return CGImageSourceCreateThumbnailAtIndex(src, 0, opts as CFDictionary)
     }
 
     /// Wandelt TIFF (macOS-Zwischenablage) in PNG um.

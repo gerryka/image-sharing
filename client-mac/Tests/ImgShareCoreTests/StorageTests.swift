@@ -81,3 +81,19 @@ struct StorageTests {
         #expect(c.read(room: "../..", blobId: "x") == nil)
     }
 }
+
+struct ReconnectDecisionTests {
+    let old = ChatEntry(serverURL: "https://x.at", myName: "a", chatName: "b")
+
+    @Test func nameChangeKeepsConnection() {
+        var new = old; new.myName = "neu"; new.chatName = "neu"
+        #expect(!ChatEntry.needsReconnect(old: old, new: new, keyChanged: false, inviteChanged: false))
+    }
+
+    @Test func serverKeyOrInviteChangeReconnects() {
+        var new = old; new.serverURL = "https://y.at"
+        #expect(ChatEntry.needsReconnect(old: old, new: new, keyChanged: false, inviteChanged: false))
+        #expect(ChatEntry.needsReconnect(old: old, new: old, keyChanged: true, inviteChanged: false))
+        #expect(ChatEntry.needsReconnect(old: old, new: old, keyChanged: false, inviteChanged: true))
+    }
+}

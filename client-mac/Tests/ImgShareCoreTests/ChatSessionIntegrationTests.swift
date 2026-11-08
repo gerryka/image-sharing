@@ -49,4 +49,12 @@ struct ChatSessionIntegrationTests {
         try await Task.sleep(for: .milliseconds(300))
         #expect(a.messages.filter { $0.id == id }.count == 1)
     }
+
+    @Test(.enabled(if: TestServer.url != nil))
+    func tooLongTextIs413WithGermanMessage() async throws {
+        let (a, _) = try pair(server: TestServer.url!)
+        let text = String(repeating: "x", count: 100_000) // > MAX_MESSAGE_BYTES (64 KiB)
+        await #expect(throws: ApiError.http(status: 413, code: "too_large")) { try await a.sendText(text) }
+        #expect(ApiError.http(status: 413, code: "too_large").message == "Datei ist zu groß für den Server.")
+    }
 }

@@ -254,22 +254,30 @@ public final class ChatSession {
     /// Lädt (oder liest aus dem verschlüsselten Cache) und entschlüsselt ein Bild.
     public func imageData(for info: ImageInfo) async throws -> Data {
         guard info.blobId.wholeMatch(of: Self.safeBlobId) != nil else { throw ImageError.invalidBlobId }
-        if let cached = cache?.read(room: keys.roomId, blobId: info.blobId) {
-            if let plain = try? decryptImage(cached) { return plain }
-            cache?.remove(room: keys.roomId, blobId: info.blobId) // kaputter Eintrag
+        return try await Self.loadImage(blobId: info.blobId, keys: keys, cache: cache, transport: transport)
+    }
+
+    /// Platte, AES-GCM und Prüfung laufen abseits des Main Actors (bis 24 MB pro Bild).
+    @concurrent
+    nonisolated static func loadImage(blobId: String, keys: ChatKeys, cache: BlobCaching?,
+                                      transport: ChatTransport) async throws -> Data {
+        if let cached = cache?.read(room: keys.roomId, blobId: blobId) {
+            if let plain = try? decryptImage(cached, keys: keys) { return plain }
+            cache?.remove(room: keys.roomId, blobId: blobId) // kaputter Eintrag
         }
-        let enc = try await transport.getBlob(info.blobId)
-        let plain = try decryptImage(enc)                              // erst prüfen …
-        cache?.write(room: keys.roomId, blobId: info.blobId, data: enc) // … dann cachen
+        let enc = try await transport.getBlob(blobId)
+        let plain = try decryptImage(enc, keys: keys)                // erst prüfen …
+        cache?.write(room: keys.roomId, blobId: blobId, data: enc)   // … dann cachen
         return plain
     }
 
-    private func decryptImage(_ enc: Data) throws -> Data {
+    nonisolated static func decryptImage(_ enc: Data, keys: ChatKeys) throws -> Data {
         let plain = try keys.decrypt(enc)
         guard ImageFormat.detectMime(plain) != nil, let d = ImageFormat.dimensions(of: plain) else {
             throw ImageError.invalidImage
         }
-        guard Int64(d.width) * Int64(d.height) <= ImageFormat.maxPixels else { throw ImageError.tooManyPixels }
+        let (pixels, overflow) = Int64(d.width).multipliedReportingOverflow(by: Int64(d.height))
+        guard !overflow, pixels <= ImageFormat.maxPixels else { throw ImageError.tooManyPixels }
         return plain
     }
 

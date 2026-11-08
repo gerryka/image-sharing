@@ -87,8 +87,13 @@ struct ImageThumb: View {
         .task(id: info.blobId) {
             do {
                 let data = try await session.imageData(for: info)
-                image = NSImage(data: data)
-                if image == nil { error = ImageError.invalidImage.message }
+                // Nur eine verkleinerte Vorschau im Speicher halten (Originale bis 100 MP).
+                let thumb = await Task.detached { ImageFormat.thumbnail(data, maxPixelSize: 640) }.value
+                if let thumb {
+                    image = NSImage(cgImage: thumb, size: NSSize(width: thumb.width / 2, height: thumb.height / 2))
+                } else {
+                    error = ImageError.invalidImage.message
+                }
             } catch {
                 self.error = ErrorText.describe(error)
             }

@@ -159,16 +159,19 @@ struct SetupView: View {
         if let chatId { dismissWindow(id: "edit-chat", value: chatId) } else { dismissWindow(id: "new-chat") }
     }
 
-    /// Kopiert den Schlüssel als „verborgen“ (Zwischenablage-Manager/Universal Clipboard ignorieren ihn)
+    /// Kopiert den Schlüssel nur für diesen Mac und als „verborgen“ (Zwischenablage-Manager ignorieren ihn)
     /// und leert die Zwischenablage nach 60 s wieder, wenn sie sich nicht verändert hat.
     private func copyKeyConcealed() {
         guard let key = parsedKey else { return }
         let pb = NSPasteboard.general
         pb.clearContents()
+        // Nur auf diesem Mac – nicht über die Universelle Zwischenablage auf iPhone/iPad.
+        pb.prepareForNewContents(with: .currentHostOnly)
         pb.declareTypes([.string, NSPasteboard.PasteboardType("org.nspasteboard.ConcealedType"),
                          NSPasteboard.PasteboardType("org.nspasteboard.TransientType")], owner: nil)
         pb.setString(KeyFormat.format(key), forType: .string)
         pb.setString("", forType: NSPasteboard.PasteboardType("org.nspasteboard.ConcealedType"))
+        pb.setString("", forType: NSPasteboard.PasteboardType("org.nspasteboard.TransientType"))
         let count = pb.changeCount
         Task { @MainActor in
             try? await Task.sleep(for: .seconds(60))

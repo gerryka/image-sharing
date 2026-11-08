@@ -49,3 +49,24 @@ struct OutgoingQueueTests {
         #expect(q.items.isEmpty)
     }
 }
+
+@MainActor
+struct OutgoingQueueRetryTests {
+    @Test func retryWhileProcessingIsPickedUp() async {
+        let q = OutgoingQueue()
+        q.enqueue(.text("A")); q.enqueue(.text("B"))
+        var attemptsA = 0
+        await q.process { item, _ in
+            guard case .text(let t) = item.kind else { return }
+            if t == "A" {
+                attemptsA += 1
+                if attemptsA == 1 { throw ApiError.http(status: 413, code: nil) }
+            } else {
+                // Während B läuft, klickt der Nutzer bei A auf „Erneut senden“.
+                q.retry(q.items[0].id)
+            }
+        }
+        #expect(attemptsA == 2)
+        #expect(q.items.isEmpty)
+    }
+}

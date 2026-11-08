@@ -85,3 +85,17 @@ final class LockedBox<T: Sendable>: @unchecked Sendable {
     func set(_ v: T) { lock.withLock { value = v } }
     func get() -> T { lock.withLock { value } }
 }
+
+struct PingTimeoutTests {
+    @Test func pingFailsAfterTimeoutWhenPongNeverArrives() async {
+        let start = ContinuousClock.now
+        await #expect(throws: URLError.self) {
+            try await ApiClient.ping(timeout: .milliseconds(200)) { _ in /* Pong kommt nie */ }
+        }
+        #expect(ContinuousClock.now - start < .seconds(2))
+    }
+
+    @Test func pingSucceedsWhenPongArrives() async throws {
+        try await ApiClient.ping(timeout: .seconds(5)) { handler in handler(nil) }
+    }
+}

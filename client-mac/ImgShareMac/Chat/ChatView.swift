@@ -9,9 +9,8 @@ struct ChatWindowRoot: View {
     @Environment(\.openWindow) private var openWindow
 
     var body: some View {
-        if let s = model.sessions[chatId], let entry = model.entry(chatId) {
-            ChatView(session: s, chatId: chatId, chatName: entry.chatName)
-                .id(ObjectIdentifier(s)) // neue Session (Setup geändert) → neues Fenster-Modell
+        if let vm = model.viewModel(for: chatId), let entry = model.entry(chatId) {
+            ChatView(vm: vm, chatId: chatId, chatName: entry.chatName)
         } else {
             ContentUnavailableView {
                 Label("Chat nicht verfügbar", systemImage: "exclamationmark.triangle")
@@ -28,26 +27,20 @@ struct ChatWindowRoot: View {
 }
 
 struct ChatView: View {
-    let session: ChatSession
+    let vm: ChatViewModel
     let chatId: String
     let chatName: String
 
     @Environment(AppModel.self) private var model
     @Environment(\.openWindow) private var openWindow
     @Environment(\.controlActiveState) private var activeState
-    @State private var vm: ChatViewModel
     @State private var search = ""
     @State private var atBottom = true
     @State private var loadingOlder = false
     @State private var dropTargeted = false
     @State private var pasteMonitor: Any?
 
-    init(session: ChatSession, chatId: String, chatName: String) {
-        self.session = session
-        self.chatId = chatId
-        self.chatName = chatName
-        _vm = State(initialValue: ChatViewModel(session: session))
-    }
+    private var session: ChatSession { vm.session }
 
     private var isActive: Bool { activeState == .key }
 
@@ -181,7 +174,7 @@ struct ChatView: View {
             guard event.modifierFlags.intersection(.deviceIndependentFlagsMask) == .command,
                   event.charactersIgnoringModifiers == "v",
                   model.activeChatIds.contains(chatId), activeState == .key,
-                  PasteboardImage.hasImage(.general),
+                  PasteboardImage.shouldInterceptPaste(.general),
                   let picked = PasteboardImage.read(from: .general) else { return event }
             vm.pick(.success(picked))
             return nil

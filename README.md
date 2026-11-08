@@ -160,9 +160,13 @@ Without the two environment variables, the integration tests are skipped.
 
 ### First start
 
-The app is ad-hoc signed but **not notarized**. On first launch macOS blocks it:
-right-click `ImgShare.app` → *Open*, or *System Settings → Privacy & Security → Open Anyway*.
-Alternatively: `xattr -dr com.apple.quarantine ImgShare.app`.
+The app is ad-hoc signed but **not notarized**. On first launch macOS blocks it. Since macOS 15,
+right-click → *Open* no longer bypasses this; instead try to open the app once, then go to
+*System Settings → Privacy & Security* and choose *Open Anyway*.
+Alternatively: `xattr -dr com.apple.quarantine ImgShare.app` before the first launch.
+
+The key is stored in the login keychain. After an update macOS may ask once whether ImgShare
+may access it – choose *Always Allow*.
 
 The app lives in the menu bar (no Dock icon). Setting up a chat works as described for
 Windows; the key can be pasted from the Windows client and the safety code must match.

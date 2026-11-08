@@ -7,6 +7,8 @@ import Observation
 final class AppModel {
     private(set) var config: AppConfig
     private(set) var sessions: [String: ChatSession] = [:]
+    /// Fensterzustand pro Chat (Entwurf, Bildvorschau, Warteschlange) – überlebt Schließen und Neuverbinden.
+    @ObservationIgnored private var viewModels: [String: ChatViewModel] = [:]
     /// Chats, die nicht starten konnten (z. B. Schlüssel fehlt), mit Fehlertext.
     private(set) var startErrors: [String: String] = [:]
     /// Chats, deren Fenster gerade vorne ist (keine Mitteilungen, automatisch gelesen).
@@ -69,6 +71,7 @@ final class AppModel {
                 self?.notify(chatId: chatId, message: msg)
             }
             sessions[e.id] = s
+            viewModels[e.id]?.session = s
             s.start()
         } catch {
             startErrors[e.id] = ErrorText.describe(error)
@@ -78,8 +81,11 @@ final class AppModel {
     /// Neuen Chat anlegen oder bestehenden ändern. Startet die Verbindung neu.
     func addOrUpdate(entry: ChatEntry, rootKey: Data, invite: String?) throws {
         var e = entry
-        if let old = self.entry(e.id), let oldKey = try? keychain.rootKey(chatId: e.id),
-           oldKey != rootKey || old.serverURL != e.serverURL {
+        let old = self.entry(e.id)
+        let oldKey = try? keychain.rootKey(chatId: e.id)
+        let keyChanged = oldKey != rootKey
+        let inviteChanged = (keychain.invite(chatId: e.id) ?? "") != (invite ?? "")
+        if old != nil, keyChanged || old?.serverURL != e.serverURL {
             e.lastReadId = 0 // anderer Chat → Lesestand gilt nicht mehr
         }
         notifier.requestAuthorizationIfNeeded()
@@ -91,7 +97,20 @@ final class AppModel {
             config.chats.append(e)
         }
         saveConfig()
-        startSession(e)
+        if let old, let s = sessions[e.id],
+           !ChatEntry.needsReconnect(old: old, new: e, keyChanged: keyChanged, inviteChanged: inviteChanged) {
+            s.updateNames(myName: e.myName, chatName: e.chatName)
+        } else {
+            startSession(e)
+        }
+    }
+
+    func viewModel(for chatId: String) -> ChatViewModel? {
+        guard let s = sessions[chatId] else { return nil }
+        if let vm = viewModels[chatId] { return vm }
+        let vm = ChatViewModel(session: s)
+        viewModels[chatId] = vm
+        return vm
     }
 
     func remove(chatId: String) {
@@ -99,6 +118,7 @@ final class AppModel {
         sessions[chatId]?.stop()
         sessions[chatId] = nil
         startErrors[chatId] = nil
+        viewModels[chatId] = nil
         keychain.removeAll(chatId: chatId)
         config.chats.removeAll { $0.id == chatId }
         saveConfig()

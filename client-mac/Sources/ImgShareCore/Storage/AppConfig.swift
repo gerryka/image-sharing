@@ -64,3 +64,10 @@ public struct AppConfig: Codable, Sendable, Equatable {
         try enc.encode(self).write(to: dir.appending(path: "config.json"), options: .atomic)
     }
 }
+
+extension ChatEntry {
+    /// Nur Namen geändert → bestehende Verbindung behalten (Entwurf, Warteschlange und Verlauf bleiben).
+    public static func needsReconnect(old: ChatEntry, new: ChatEntry, keyChanged: Bool, inviteChanged: Bool) -> Bool {
+        keyChanged || inviteChanged || old.serverURL != new.serverURL || old.deviceId != new.deviceId
+    }
+}

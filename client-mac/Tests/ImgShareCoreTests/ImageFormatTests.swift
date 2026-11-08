@@ -66,3 +66,31 @@ struct ImageHeaderTests {
         #expect(d?.width == 20000 && d?.height == 30000)
     }
 }
+
+struct ThumbnailTests {
+    func png(width: Int, height: Int) -> Data {
+        let ctx = CGContext(data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: 0,
+                            space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+        ctx.setFillColor(red: 1, green: 0, blue: 0, alpha: 1)
+        ctx.fill(CGRect(x: 0, y: 0, width: width, height: height))
+        let out = NSMutableData()
+        let dst = CGImageDestinationCreateWithData(out, UTType.png.identifier as CFString, 1, nil)!
+        CGImageDestinationAddImage(dst, ctx.makeImage()!, nil)
+        CGImageDestinationFinalize(dst)
+        return out as Data
+    }
+
+    @Test func thumbnailIsDownscaled() throws {
+        let t = try #require(ImageFormat.thumbnail(png(width: 2000, height: 1000), maxPixelSize: 640))
+        #expect(t.width == 640 && t.height == 320)
+    }
+
+    @Test func smallImageIsNotUpscaled() throws {
+        let t = try #require(ImageFormat.thumbnail(tinyPNG, maxPixelSize: 640))
+        #expect(t.width == 1 && t.height == 1)
+    }
+
+    @Test func garbageHasNoThumbnail() {
+        #expect(ImageFormat.thumbnail(Data("x".utf8), maxPixelSize: 640) == nil)
+    }
+}

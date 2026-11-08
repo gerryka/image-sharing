@@ -5,7 +5,7 @@ import Observation
 /// Zustand eines Chat-Fensters: Entwurf, ausgewähltes Bild, Warteschlange.
 @MainActor @Observable
 final class ChatViewModel {
-    let session: ChatSession
+    var session: ChatSession
     var draft = ""
     var pendingImage: PasteboardImage.Picked?
     var sendError: String?

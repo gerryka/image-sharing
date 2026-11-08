@@ -206,3 +206,19 @@ struct ChatSessionTests {
         #expect(await eventually { seen.get() == ["neu"] })
     }
 }
+
+@MainActor
+struct ChatSessionOverflowTests {
+    @Test func imageDataRejectsOverflowingIHDR() async throws {
+        let root = ChatKeys.generateRootKey()
+        let keys = try ChatKeys.derive(rootKey: root)
+        let fake = FakeTransport()
+        let info = ChatEntryInfo(id: "c", serverURL: URL(string: "https://x.invalid")!, myName: "a", chatName: "b",
+                                 deviceId: "d", lastReadId: 0)
+        let s = try ChatSession(entry: info, rootKey: root, invite: nil, transport: fake, cache: MemoryCache(),
+                                onLastReadChanged: { _ in })
+        await fake.putBlob("huge", try keys.encrypt(pngHeaderOnly(width: 0xFFFF_FFFF, height: 0xFFFF_FFFF)))
+        let img = ImageInfo(blobId: "huge", mime: "image/png", filename: "a.png", size: 1, width: 1, height: 1)
+        await #expect(throws: ImageError.self) { _ = try await s.imageData(for: img) }
+    }
+}

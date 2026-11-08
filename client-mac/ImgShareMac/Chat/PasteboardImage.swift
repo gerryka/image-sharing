@@ -26,6 +26,14 @@ enum PasteboardImage {
             ?? read(data: pb.data(forType: .tiff), type: .tiff)
     }
 
+    /// ⌘V abfangen nur, wenn wirklich ein Bild gemeint ist: Bilddatei oder Bild ohne Text.
+    /// (Excel, Word, Browser legen zu kopiertem Text oft zusätzlich ein Bild ab.)
+    static func shouldInterceptPaste(_ pb: NSPasteboard) -> Bool {
+        let urls = pb.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL]
+        if urls?.contains(where: { ["png", "jpg", "jpeg"].contains($0.pathExtension.lowercased()) }) == true { return true }
+        return pb.availableType(from: [.string]) == nil && hasImage(pb)
+    }
+
     static func hasImage(_ pb: NSPasteboard) -> Bool {
         let types: [NSPasteboard.PasteboardType] = [.png, .tiff, NSPasteboard.PasteboardType(UTType.jpeg.identifier)]
         if pb.availableType(from: types) != nil { return true }

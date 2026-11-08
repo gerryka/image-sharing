@@ -189,7 +189,9 @@ public final class ApiClient: ChatTransport {
                 try? await Task.sleep(for: Self.pingInterval)
                 if Task.isCancelled { return }
                 do {
-                    try await Self.ping(task)
+                    try await Self.ping(timeout: Self.pongTimeout) { handler in
+                        task.sendPing(pongReceiveHandler: handler)
+                    }
                 } catch {
                     task.cancel(with: .goingAway, reason: nil)
                     cont.finish(throwing: URLError(.networkConnectionLost))
@@ -205,23 +207,20 @@ public final class ApiClient: ChatTransport {
     }
 
     /// Ping mit Timeout: ein lautlos toter Socket (Ruhezustand) liefert nie ein Pong.
-    static func ping(_ task: URLSessionWebSocketTask) async throws {
-        try await withThrowingTaskGroup(of: Void.self) { group in
-            group.addTask {
-                try await withCheckedThrowingContinuation { (c: CheckedContinuation<Void, Error>) in
-                    let once = OnceFlag()
-                    task.sendPing { err in
-                        guard once.claim() else { return }
-                        if let err { c.resume(throwing: err) } else { c.resume() }
-                    }
-                }
+    /// Eine Continuation, die entweder der Pong-Handler oder der Timeout fortsetzt – wer zuerst kommt.
+    static func ping(timeout: Duration,
+                     send: @escaping @Sendable (@escaping @Sendable (Error?) -> Void) -> Void) async throws {
+        try await withCheckedThrowingContinuation { (c: CheckedContinuation<Void, Error>) in
+            let once = OnceFlag()
+            send { err in
+                guard once.claim() else { return }
+                if let err { c.resume(throwing: err) } else { c.resume() }
             }
-            group.addTask {
-                try await Task.sleep(for: pongTimeout)
-                throw URLError(.timedOut)
+            Task {
+                try? await Task.sleep(for: timeout)
+                guard once.claim() else { return }
+                c.resume(throwing: URLError(.timedOut))
             }
-            try await group.next()
-            group.cancelAll()
         }
     }
 

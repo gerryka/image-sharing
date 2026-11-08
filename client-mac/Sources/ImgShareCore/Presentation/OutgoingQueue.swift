@@ -18,6 +18,8 @@ public struct OutgoingItem: Identifiable, Sendable {
 public final class OutgoingQueue {
     public private(set) var items: [OutgoingItem] = []
     @ObservationIgnored private var running = false
+    /// IDs, die im laufenden Durchlauf schon versucht wurden (retry entfernt sie wieder).
+    @ObservationIgnored private var attempted = Set<UUID>()
 
     public init() {}
 
@@ -29,8 +31,8 @@ public final class OutgoingQueue {
     public func process(using send: (OutgoingItem, @escaping @Sendable (Double) -> Void) async throws -> Void) async {
         guard !running else { return }
         running = true
-        defer { running = false }
-        var attempted = Set<UUID>()
+        attempted = []
+        defer { running = false; attempted = [] }
         while let item = items.first(where: { $0.error == nil && !attempted.contains($0.id) }) {
             attempted.insert(item.id)
             let id = item.id
@@ -46,7 +48,10 @@ public final class OutgoingQueue {
         }
     }
 
-    public func retry(_ id: UUID) { update(id) { $0.error = nil } }
+    public func retry(_ id: UUID) {
+        attempted.remove(id) // ein laufender Durchlauf nimmt den Eintrag wieder auf
+        update(id) { $0.error = nil }
+    }
 
     public func discard(_ id: UUID) { items.removeAll { $0.id == id } }
 
