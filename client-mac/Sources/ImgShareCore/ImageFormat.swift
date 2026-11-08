@@ -55,6 +55,12 @@ public enum ImageFormat {
 
     /// Bildmaße aus dem Header, ohne zu dekodieren.
     public static func dimensions(of data: Data) -> (width: Int, height: Int)? {
+        // PNG: Maße direkt aus dem IHDR lesen (unabhängig davon, ob ImageIO die Datei mag).
+        let b = [UInt8](data.prefix(24))
+        if detectMime(data) == "image/png", b.count == 24, b[12...15] == [0x49, 0x48, 0x44, 0x52] {
+            func be(_ i: Int) -> Int { Int(b[i]) << 24 | Int(b[i + 1]) << 16 | Int(b[i + 2]) << 8 | Int(b[i + 3]) }
+            return (be(16), be(20))
+        }
         guard let src = CGImageSourceCreateWithData(data as CFData, nil),
               let props = CGImageSourceCopyPropertiesAtIndex(src, 0, nil) as? [CFString: Any],
               let w = props[kCGImagePropertyPixelWidth] as? Int,

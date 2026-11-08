@@ -59,3 +59,10 @@ struct ImageFormatTests {
         #expect(ImageFormat.maxPixels == 100_000_000)
     }
 }
+
+struct ImageHeaderTests {
+    @Test func pngDimensionsFromHeaderWithoutImageData() {
+        let d = ImageFormat.dimensions(of: pngHeaderOnly(width: 20000, height: 30000))
+        #expect(d?.width == 20000 && d?.height == 30000)
+    }
+}
