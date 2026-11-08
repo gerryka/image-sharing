@@ -94,7 +94,7 @@ struct ChatView: View {
             return true
         }
         .onChange(of: isActive, initial: true) { _, active in
-            if active { model.activeChatIds.insert(chatId) } else { model.activeChatIds.remove(chatId) }
+            if active { model.chatBecameActive(chatId) } else { model.activeChatIds.remove(chatId) }
             if active { Task { await session.markRead() } }
         }
         .onChange(of: session.messages.last?.id) {
@@ -171,7 +171,7 @@ struct ChatView: View {
     }
 
     private func openImage(_ info: ImageInfo) {
-        // Bildanzeige folgt in Task 10.
+        openWindow(id: "image", value: ImageRef(chatId: chatId, info: info))
     }
 
     /// ⌘V mit Bild in der Zwischenablage: Bild übernehmen, statt (nichts) ins Textfeld einzufügen.

@@ -16,9 +16,7 @@ struct ImgShareMacApp: App {
             MenuBarContent()
                 .environment(model)
         } label: {
-            Image(systemName: model.totalUnread > 0 ? "bubble.left.and.exclamationmark.bubble.right.fill"
-                                                    : "bubble.left.and.bubble.right")
-                .accessibilityLabel(model.totalUnread > 0 ? "ImgShare – \(model.totalUnread) ungelesen" : "ImgShare")
+            MenuBarLabel().environment(model)
         }
         .menuBarExtraStyle(.menu)
 
@@ -29,6 +27,15 @@ struct ImgShareMacApp: App {
             }
         }
         .defaultSize(width: 460, height: 640)
+        .defaultLaunchBehavior(.suppressed)
+        .restorationBehavior(.disabled)
+
+        WindowGroup("Bild", id: "image", for: ImageRef.self) { $ref in
+            if let ref {
+                ImageViewerView(ref: ref)
+                    .environment(model)
+            }
+        }
         .defaultLaunchBehavior(.suppressed)
         .restorationBehavior(.disabled)
 
@@ -49,6 +56,24 @@ struct ImgShareMacApp: App {
         .windowResizability(.contentSize)
         .defaultLaunchBehavior(.suppressed)
         .restorationBehavior(.disabled)
+    }
+}
+
+/// Symbol in der Menüleiste. Bleibt immer geladen und öffnet daher auch Chats aus Mitteilungen.
+struct MenuBarLabel: View {
+    @Environment(AppModel.self) private var model
+    @Environment(\.openWindow) private var openWindow
+
+    var body: some View {
+        Image(systemName: model.totalUnread > 0 ? "bubble.left.and.exclamationmark.bubble.right.fill"
+                                                : "bubble.left.and.bubble.right")
+            .accessibilityLabel(model.totalUnread > 0 ? "ImgShare – \(model.totalUnread) ungelesen" : "ImgShare")
+            .onChange(of: model.pendingOpenChat) {
+                guard let id = model.pendingOpenChat else { return }
+                model.pendingOpenChat = nil
+                openWindow(id: "chat", value: id)
+                activateApp()
+            }
     }
 }
 

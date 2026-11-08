@@ -12,12 +12,16 @@ final class AppModel {
     /// Chats, deren Fenster gerade vorne ist (keine Mitteilungen, automatisch gelesen).
     var activeChatIds: Set<String> = []
 
+    /// Chat, der geöffnet werden soll (z. B. nach Klick auf eine Mitteilung).
+    var pendingOpenChat: String?
+
     let keychain = KeychainStore()
     let cache = BlobCache()
-    @ObservationIgnored var onNewMessage: ((ChatEntry, ChatMessage) -> Void)?
+    @ObservationIgnored let notifier = Notifier()
 
     init() {
         config = AppConfig.load()
+        notifier.onOpenChat = { [weak self] id in self?.pendingOpenChat = id }
     }
 
     var totalUnread: Int { sessions.values.reduce(0) { $0 + $1.unreadCount } }
@@ -30,7 +34,21 @@ final class AppModel {
     func entry(_ chatId: String) -> ChatEntry? { config.chats.first { $0.id == chatId } }
 
     func start() {
+        if !config.chats.isEmpty { notifier.requestAuthorizationIfNeeded() }
         for e in config.chats { startSession(e) }
+    }
+
+    /// Neue fremde Nachricht: Mitteilung, wenn das Chat-Fenster nicht vorne ist.
+    private func notify(chatId: String, message: ChatMessage) {
+        guard !config.notificationsPaused, !activeChatIds.contains(chatId),
+              let entry = entry(chatId), let s = sessions[chatId] else { return }
+        notifier.post(NotificationText.make(chatId: chatId, chatName: entry.chatName, message: message,
+                                            unread: s.unreadCount))
+    }
+
+    func chatBecameActive(_ chatId: String) {
+        activeChatIds.insert(chatId)
+        notifier.clear(chatId: chatId)
     }
 
     private func startSession(_ e: ChatEntry) {
@@ -47,8 +65,8 @@ final class AppModel {
             let s = try ChatSession(entry: info, rootKey: key, invite: keychain.invite(chatId: e.id),
                                     cache: cache) { [weak self] id in self?.setLastRead(chatId: chatId, id: id) }
             s.onNewMessage = { [weak self] msg, live in
-                guard live, let self, let entry = self.entry(chatId) else { return }
-                self.onNewMessage?(entry, msg)
+                guard live else { return }
+                self?.notify(chatId: chatId, message: msg)
             }
             sessions[e.id] = s
             s.start()
@@ -64,6 +82,7 @@ final class AppModel {
            oldKey != rootKey || old.serverURL != e.serverURL {
             e.lastReadId = 0 // anderer Chat → Lesestand gilt nicht mehr
         }
+        notifier.requestAuthorizationIfNeeded()
         try keychain.setRootKey(rootKey, chatId: e.id)
         try keychain.setInvite(invite, chatId: e.id)
         if let i = config.chats.firstIndex(where: { $0.id == e.id }) {
@@ -76,6 +95,7 @@ final class AppModel {
     }
 
     func remove(chatId: String) {
+        notifier.clear(chatId: chatId)
         sessions[chatId]?.stop()
         sessions[chatId] = nil
         startErrors[chatId] = nil
