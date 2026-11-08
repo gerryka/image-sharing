@@ -65,12 +65,16 @@ jobs:
 
       - name: Paketieren
         run: |
-          mkdir -p release
-          ditto -c -k --keepParent client-mac/build/Build/Products/Release/ImgShare.app release/ImgShare-mac.zip
+          app=client-mac/build/Build/Products/Release/ImgShare.app
+          mkdir -p release dmgroot
+          ditto -c -k --keepParent "$app" release/ImgShare-mac.zip
+          # DMG mit Verknüpfung zum Programme-Ordner (Drag & Drop-Installation)
+          ditto "$app" dmgroot/ImgShare.app
+          ln -s /Applications dmgroot/Programme
+          hdiutil create -volname ImgShare -srcfolder dmgroot -fs HFS+ -format UDZO -ov release/ImgShare-mac.dmg
           cd release
-          shasum -a 256 ImgShare-mac.zip > ImgShare-mac.zip.sha256
-          cat ImgShare-mac.zip.sha256
-          du -h ImgShare-mac.zip
+          for f in ImgShare-mac.zip ImgShare-mac.dmg; do shasum -a 256 "$f" > "$f.sha256"; cat "$f.sha256"; done
+          du -h ImgShare-mac.*
 
       - uses: actions/upload-artifact@v4
         with:
@@ -94,12 +98,14 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          notes="**ImgShare-mac.zip** ist die macOS-Menüleisten-App (nicht notarisiert, siehe README: erster Start)."
-          if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+          notes="**ImgShare-mac.dmg** (oder .zip) ist die macOS-Menüleisten-App (nicht notarisiert, siehe README: erster Start)."
+          # Der Windows-Workflow läuft parallel und legt das Release evtl. gleichzeitig an:
+          # Anlegen versuchen, sonst (oder bei Wettlauf) hochladen.
+          if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 \
+             || ! gh release create "$GITHUB_REF_NAME" dist/* \
+                    --repo "$GITHUB_REPOSITORY" \
+                    --title "ImgShare $GITHUB_REF_NAME" \
+                    --notes "$notes" --generate-notes; then
+            sleep 5
             gh release upload "$GITHUB_REF_NAME" dist/* --clobber --repo "$GITHUB_REPOSITORY"
-          else
-            gh release create "$GITHUB_REF_NAME" dist/* \
-              --repo "$GITHUB_REPOSITORY" \
-              --title "ImgShare $GITHUB_REF_NAME" \
-              --notes "$notes" --generate-notes
           fi

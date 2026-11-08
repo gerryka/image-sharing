@@ -142,7 +142,7 @@ xcodebuild -project ImgShareMac.xcodeproj -scheme ImgShareMac -configuration Rel
 ```
 
 Result: `client-mac/build/Build/Products/Release/ImgShare.app`. `IMGSHARE_DEFAULT_SERVER`
-pre-fills the server address. `.github/workflows/mac-client.yml` builds `ImgShare-mac.zip`
+pre-fills the server address. `.github/workflows/mac-client.yml` builds `ImgShare-mac.dmg` and `.zip`
 on every push to `main` and attaches it to releases for tags `v*`.
 
 ### Tests
