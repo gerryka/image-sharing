@@ -1,8 +1,10 @@
 # Baut den Windows-Client in zwei Varianten:
-#  - ImgShare.exe     self-contained, läuft ohne Installation (~73 MB)
-#  - ImgShare-fx.exe  braucht die .NET 10 Desktop Runtime (~0,5 MB)
-# Push auf main bzw. Pull Request: EXEs als Build-Artefakt (14 Tage abrufbar).
-# Tag v* (z. B. v1.2.0): zusätzlich GitHub-Release mit beiden EXEs und SHA-256-Prüfsummen.
+#  - ImgShare.exe     self-contained Single-File, läuft ohne Installation. Bewusst
+#                     unkomprimiert: komprimierte Anhänge wirken auf Virenscanner wie ein Packer.
+#  - ImgShare-fx.zip  normales .NET-Layout (EXE + DLLs), braucht die .NET 10 Desktop Runtime.
+#                     Kein Single-File-Bündel, weil an EXEs angehängte Daten Heuristiken triggern.
+# Push auf main bzw. Pull Request: Dateien als Build-Artefakt (14 Tage abrufbar).
+# Tag v* (z. B. v1.2.0): zusätzlich GitHub-Release mit beiden Dateien und SHA-256-Prüfsummen.
 name: Windows-Client
 
 on:
@@ -24,10 +26,10 @@ jobs:
       matrix:
         include:
           - variant: standalone
-            exe: ImgShare.exe
-            args: --self-contained true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true
+            file: ImgShare.exe
+            args: --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true
           - variant: fx
-            exe: ImgShare-fx.exe
+            file: ImgShare-fx.zip
             args: --self-contained false
     steps:
       - uses: actions/checkout@v4
@@ -48,21 +50,28 @@ jobs:
         shell: pwsh
         run: >
           dotnet publish client/ImgShare/ImgShare.csproj
-          -c Release -r win-x64 -p:PublishSingleFile=true
+          -c Release -r win-x64
           ${{ matrix.args }}
+          -p:DebugType=None -p:DebugSymbols=false
           -p:Version=${{ steps.ver.outputs.version }}
           "-p:DefaultServer=${{ vars.IMGSHARE_DEFAULT_SERVER }}"
           -o out
 
-      - name: Umbenennen und Prüfsumme
+      - name: Verpacken und Prüfsumme
         shell: pwsh
         run: |
+          $f = "${{ matrix.file }}"
           New-Item -ItemType Directory -Force release | Out-Null
-          Copy-Item out/ImgShare.exe "release/${{ matrix.exe }}"
-          $h = (Get-FileHash "release/${{ matrix.exe }}" -Algorithm SHA256).Hash.ToLower()
-          "$h  ${{ matrix.exe }}" | Out-File -Encoding ascii "release/${{ matrix.exe }}.sha256"
-          Get-Content "release/${{ matrix.exe }}.sha256"
-          "{0:N1} MB" -f ((Get-Item "release/${{ matrix.exe }}").Length / 1MB)
+          if ($f.EndsWith('.zip')) {
+            Get-ChildItem out
+            Compress-Archive -Path out/* -DestinationPath "release/$f"
+          } else {
+            Copy-Item out/ImgShare.exe "release/$f"
+          }
+          $h = (Get-FileHash "release/$f" -Algorithm SHA256).Hash.ToLower()
+          "$h  $f" | Out-File -Encoding ascii "release/$f.sha256"
+          Get-Content "release/$f.sha256"
+          "{0:N1} MB" -f ((Get-Item "release/$f").Length / 1MB)
 
       - uses: actions/upload-artifact@v4
         with:
@@ -86,7 +95,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          notes="**ImgShare.exe** läuft ohne Installation. **ImgShare-fx.exe** ist die kleine Variante und braucht die [.NET 10 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/10.0) (x64)."
+          notes="**ImgShare.exe** läuft ohne Installation. **ImgShare-fx.zip** ist die kleine Variante (entpacken, ImgShare.exe starten) und braucht die [.NET 10 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/10.0) (x64)."
           if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             gh release upload "$GITHUB_REF_NAME" dist/* --clobber --repo "$GITHUB_REPOSITORY"
           else

@@ -64,14 +64,20 @@ Health check: `curl https://server.example.com:47000/healthz` → `ok`.
 
 ```
 cd client/ImgShare
-dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -p:DefaultServer=https://server.example.com:47000 -o ../../dist
+dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:DefaultServer=https://server.example.com:47000 -o ../../dist
 ```
 
 Result: `dist/ImgShare.exe` – a single file, no installation, no .NET required.
 `DefaultServer` pre-fills the server address; without it the field starts as `https://`.
 
-For the small variant, use `--self-contained false` instead of `--self-contained true`,
-drop the `…SelfExtract` / `…Compression` switches and publish into an empty output folder.
+For the small variant, use `--self-contained false` and drop `-p:PublishSingleFile=true`
+and `-p:IncludeNativeLibrariesForSelfExtract=true`; publish into an empty output folder.
+The result is a regular .NET app folder (`ImgShare.exe` plus a few DLLs).
+
+The single-file EXE is intentionally **not compressed**, and the small variant is **not**
+a single-file bundle: compressed or appended payloads look like a packer to antivirus
+heuristics. The EXEs carry full version information, an embedded icon and an
+`asInvoker` manifest for the same reason.
 
 ### Automated build (GitHub Actions)
 
@@ -80,11 +86,11 @@ drop the `…SelfExtract` / `…Compression` switches and publish into an empty 
 
 | File | Size | Requirement |
 |---|---|---|
-| `ImgShare.exe` | ~73 MB | none – bundles the .NET runtime |
-| `ImgShare-fx.exe` | ~0.5 MB | [.NET 10 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/10.0) (x64) |
+| `ImgShare.exe` | ~165 MB | none – bundles the .NET runtime |
+| `ImgShare-fx.zip` | ~0.2 MB | [.NET 10 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/10.0) (x64); unzip and run `ImgShare.exe` |
 
-Pushing a tag `v*` additionally creates a GitHub release with both EXEs and SHA-256
-checksums. The version number of the EXEs is taken from the tag:
+Pushing a tag `v*` additionally creates a GitHub release with both files and SHA-256
+checksums. The version number is taken from the tag:
 
 ```
 git tag v1.0.0

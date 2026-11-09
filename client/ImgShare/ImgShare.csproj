@@ -9,10 +9,22 @@
     <ImplicitUsings>disable</ImplicitUsings>
     <AssemblyName>ImgShare</AssemblyName>
     <RootNamespace>ImgShare</RootNamespace>
-    <Product>Bildsharing</Product>
     <Version>1.0.0</Version>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>ImgShare.ico</ApplicationIcon>
+
+    <!-- Versionsressource (Dateieigenschaften → Details). Vollständige Angaben
+         senken die Trefferquote heuristischer Virenscanner. -->
+    <Product>ImgShare</Product>
+    <AssemblyTitle>ImgShare</AssemblyTitle>
+    <Description>ImgShare – Ende-zu-Ende-verschlüsselter Bild- und Text-Chat</Description>
+    <Company>gerryka</Company>
+    <Authors>gerryka</Authors>
+    <Copyright>© 2026 gerryka</Copyright>
+    <NeutralLanguage>de-AT</NeutralLanguage>
+    <RepositoryUrl>https://github.com/gerryka/image-sharing</RepositoryUrl>
   </PropertyGroup>
+
 
   <!-- Vorbelegte Server-Adresse: dotnet publish -p:DefaultServer=https://server.example.com:47000
        oder Umgebungsvariable DefaultServer. Leer = Feld startet mit "https://". -->
